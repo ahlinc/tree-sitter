@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# vim:ts=2:sw=2:et
 
-set -e
+shopts=$-
+set -Eeuo pipefail
 
 function usage {
   cat <<-EOF
@@ -37,6 +39,9 @@ export RUST_BACKTRACE=full
 mode=normal
 test_flags="-p tree-sitter-cli"
 
+TREE_SITTER_TEST_LANGUAGE_FILTER=
+TREE_SITTER_TEST_EXAMPLE_FILTER=
+TREE_SITTER_TEST_TRIAL_FILTER=
 
 while getopts "adDghl:e:s:t:" option; do
   case ${option} in
@@ -53,10 +58,10 @@ while getopts "adDghl:e:s:t:" option; do
       if [[ $toolchain =~ $toolchain_regex ]]; then
         release=${BASH_REMATCH[1]}
         current_target=${BASH_REMATCH[2]}
+        test_flags="${test_flags} --target ${current_target}"
       else
         echo "Failed to parse toolchain '${toolchain}'"
       fi
-      test_flags="${test_flags} --target ${current_target}"
       ;;
     l)
       export TREE_SITTER_TEST_LANGUAGE_FILTER=${OPTARG}
@@ -84,14 +89,31 @@ done
 
 shift $(expr $OPTIND - 1)
 
-top_level_filter=$1
+top_level_filter=${1-}
 
 if [[ \
-  -n $TREE_SITTER_TEST_LANGUAGE_FILTER || \
-  -n $TREE_SITTER_TEST_EXAMPLE_FILTER || \
-  -n $TREE_SITTER_TEST_TRIAL_FILTER \
+  -n "$TREE_SITTER_TEST_LANGUAGE_FILTER" || \
+  -n "$TREE_SITTER_TEST_EXAMPLE_FILTER" || \
+  -n "$TREE_SITTER_TEST_TRIAL_FILTER" \
 ]]; then
   : ${top_level_filter:=corpus}
+fi
+
+# Allow to source this script to just set
+# shell environment variables and use `cargo test` directly
+if [ "$0" != "$BASH_SOURCE" ]; then
+    eval set +${-//[is]/}
+    eval set -${shopts//[is]/}
+    cargo() {
+      case "$1" in
+        t|test)
+            command cargo test $test_flags "${@:2}"
+            ;;
+        *)  command cargo "$@"
+            ;;
+      esac
+    }
+    return
 fi
 
 if [[ "${mode}" == "debug" ]]; then
@@ -101,5 +123,6 @@ if [[ "${mode}" == "debug" ]]; then
   )
   lldb "${test_binary}" -- $top_level_filter
 else
-  cargo test $test_flags --jobs 1 $top_level_filter -- --nocapture
+  [ -t 1 ] && color=always || color=never
+  cargo test $test_flags --jobs 1 $top_level_filter -- --nocapture --color "$color"
 fi
