@@ -1,9 +1,13 @@
 Tree-sitter CLI
 ===============
 
-[![Build Status](https://travis-ci.org/tree-sitter/tree-sitter.svg?branch=master)](https://travis-ci.org/tree-sitter/tree-sitter)
+[![Build Status](https://github.com/tree-sitter/tree-sitter/workflows/CI/badge.svg)](https://github.com/tree-sitter/tree-sitter/actions)
 [![Build status](https://ci.appveyor.com/api/projects/status/vtmbd6i92e97l55w/branch/master?svg=true)](https://ci.appveyor.com/project/maxbrunsfeld/tree-sitter/branch/master)
 [![Crates.io](https://img.shields.io/crates/v/tree-sitter-cli.svg)](https://crates.io/crates/tree-sitter-cli)
+
+[![NPM Version](http://img.shields.io/npm/v/tree-sitter-cli.svg?style=flat)](https://www.npmjs.org/package/tree-sitter-cli)
+[![NPM Downloads](https://img.shields.io/npm/dm/tree-sitter-cli.svg?style=flat)](https://npmcharts.com/compare/tree-sitter-cli?minimal=true)
+[![Install Size](https://packagephobia.now.sh/badge?p=tree-sitter-cli)](https://packagephobia.now.sh/result?p=tree-sitter-cli)
 
 The Tree-sitter CLI allows you to develop, test, and use Tree-sitter grammars from the command line. It works on MacOS, Linux, and Windows.
 
