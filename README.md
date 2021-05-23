@@ -5,20 +5,18 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4777203.svg)](https://doi.org/10.5281/zenodo.4777203)
 
 ##### Versions
-[![NPM](http://img.shields.io/npm/v/tree-sitter-cli.svg?label=CLI:npm&color=gray)](https://www.npmjs.org/package/tree-sitter-cli)
-[![crates.io](https://img.shields.io/crates/v/tree-sitter-cli.svg?label=CLI:crate&color=gray)](https://crates.io/crates/tree-sitter-cli)
+[![NPM](http://img.shields.io/npm/v/tree-sitter-cli.svg?label=CLI%20-%20npm&color=gray)](https://www.npmjs.org/package/tree-sitter-cli)
+[![crates.io](https://img.shields.io/crates/v/tree-sitter-cli.svg?label=CLI%20-%20crate:&color=gray)](https://crates.io/crates/tree-sitter-cli)
 
-[![binding:wasm:npm](http://img.shields.io/npm/v/web-tree-sitter.svg?label=binding:wasm:npm&color=gray)](https://www.npmjs.org/package/web-tree-sitter)
-[![binding:rust](https://img.shields.io/crates/v/tree-sitter.svg?label=binding:rust&color=gray)](https://crates.io/crates/tree-sitter)
-[![binding:node](http://img.shields.io/npm/v/tree-sitter.svg?label=binding:node&color=gray)](https://www.npmjs.org/package/tree-sitter)
-[![binding:python](http://img.shields.io/pypi/v/tree-sitter.svg?label=binding:python&color=gray)](https://pypi.org/project/tree-sitter)
-[![binding:haskell](http://img.shields.io/hackage/v/tree-sitter.svg?label=binding:haskell&color=gray)](http://hackage.haskell.org/package/tree-sitter)
-[![binding:ruby](http://img.shields.io/gem/v/tree-sitter.svg?label=binding:ruby&color=gray)](https://rubygems.org/gems/tree-sitter)
+[![crates.io](https://img.shields.io/crates/v/tree-sitter-tags.svg?label=TAGS%20-%20crate:&color=gray)](https://crates.io/crates/tree-sitter-tags)
+[![crates.io](https://img.shields.io/crates/v/tree-sitter-highlight.svg?label=HIGHLIGHT%20-%20crate:&color=gray)](https://crates.io/crates/tree-sitter-highlight)
 
-[![crates.io](https://img.shields.io/crates/v/tree-sitter-tags.svg?label=tags:crate&color=gray)](https://crates.io/crates/tree-sitter-tags)
-[![crates.io](https://img.shields.io/crates/v/tree-sitter-highlight.svg?label=highlight:crate&color=gray)](https://crates.io/crates/tree-sitter-highlight)
-
-
+[![binding:wasm:npm](http://img.shields.io/npm/v/web-tree-sitter.svg?label=binding:%20WASM%20-%20npm:&color=gray)](https://www.npmjs.org/package/web-tree-sitter)
+[![binding:rust](https://img.shields.io/crates/v/tree-sitter.svg?label=binding:%20Rust&color=gray)](https://crates.io/crates/tree-sitter)
+[![binding:node](http://img.shields.io/npm/v/tree-sitter.svg?label=binding:%20Node&color=gray)](https://www.npmjs.org/package/tree-sitter)
+[![binding:python](http://img.shields.io/pypi/v/tree-sitter.svg?label=binding:%20Python&color=gray)](https://pypi.org/project/tree-sitter)
+[![binding:haskell](http://img.shields.io/hackage/v/tree-sitter.svg?label=binding:%20Haskell&color=gray)](http://hackage.haskell.org/package/tree-sitter)
+[![binding:ruby](http://img.shields.io/gem/v/tree-sitter.svg?label=binding:%20Ruby&color=gray)](https://rubygems.org/gems/tree-sitter)
 
 Tree-sitter is a parser generator tool and an incremental parsing library. It can build a concrete syntax tree for a source file and efficiently update the syntax tree as the source file is edited. Tree-sitter aims to be:
 
