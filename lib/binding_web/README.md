@@ -1,7 +1,10 @@
 Web Tree-sitter
 ===============
 
-[![Build Status](https://travis-ci.org/tree-sitter/tree-sitter.svg?branch=master)](https://travis-ci.org/tree-sitter/tree-sitter)
+[![Build Status](https://github.com/tree-sitter/tree-sitter/workflows/CI/badge.svg)](https://github.com/tree-sitter/tree-sitter/actions)
+[![NPM Version](http://img.shields.io/npm/v/web-tree-sitter.svg?style=flat)](https://www.npmjs.org/package/web-tree-sitter)
+[![NPM Downloads](https://img.shields.io/npm/dm/web-tree-sitter.svg?style=flat)](https://npmcharts.com/compare/web-tree-sitter?minimal=true)
+[![Install Size](https://packagephobia.now.sh/badge?p=web-tree-sitter)](https://packagephobia.now.sh/result?p=web-tree-sitter)
 
 WebAssembly bindings to the [Tree-sitter](https://github.com/tree-sitter/tree-sitter) parsing library.
 
