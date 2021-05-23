@@ -4,6 +4,22 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/vtmbd6i92e97l55w/branch/master?svg=true)](https://ci.appveyor.com/project/maxbrunsfeld/tree-sitter/branch/master)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4777203.svg)](https://doi.org/10.5281/zenodo.4777203)
 
+##### Versions
+[![NPM](http://img.shields.io/npm/v/tree-sitter-cli.svg?label=CLI:npm&color=gray)](https://www.npmjs.org/package/tree-sitter-cli)
+[![crates.io](https://img.shields.io/crates/v/tree-sitter-cli.svg?label=CLI:crate&color=gray)](https://crates.io/crates/tree-sitter-cli)
+
+[![binding:wasm:npm](http://img.shields.io/npm/v/web-tree-sitter.svg?label=binding:wasm:npm&color=gray)](https://www.npmjs.org/package/web-tree-sitter)
+[![binding:rust](https://img.shields.io/crates/v/tree-sitter.svg?label=binding:rust&color=gray)](https://crates.io/crates/tree-sitter)
+[![binding:node](http://img.shields.io/npm/v/tree-sitter.svg?label=binding:node&color=gray)](https://www.npmjs.org/package/tree-sitter)
+[![binding:python](http://img.shields.io/pypi/v/tree-sitter.svg?label=binding:python&color=gray)](https://pypi.org/project/tree-sitter)
+[![binding:haskell](http://img.shields.io/hackage/v/tree-sitter.svg?label=binding:haskell&color=gray)](http://hackage.haskell.org/package/tree-sitter)
+[![binding:ruby](http://img.shields.io/gem/v/tree-sitter.svg?label=binding:ruby&color=gray)](https://rubygems.org/gems/tree-sitter)
+
+[![crates.io](https://img.shields.io/crates/v/tree-sitter-tags.svg?label=tags:crate&color=gray)](https://crates.io/crates/tree-sitter-tags)
+[![crates.io](https://img.shields.io/crates/v/tree-sitter-highlight.svg?label=highlight:crate&color=gray)](https://crates.io/crates/tree-sitter-highlight)
+
+
+
 Tree-sitter is a parser generator tool and an incremental parsing library. It can build a concrete syntax tree for a source file and efficiently update the syntax tree as the source file is edited. Tree-sitter aims to be:
 
 - **General** enough to parse any programming language
