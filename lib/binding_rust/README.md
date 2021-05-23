@@ -5,6 +5,10 @@
 [![Crates.io](https://img.shields.io/crates/v/tree-sitter.svg)](https://crates.io/crates/tree-sitter)
 [![Docs.rs](https://docs.rs/tree-sitter/badge.svg)](https://docs.rs/tree-sitter)
 
+[![crates.io](https://img.shields.io/crates/d/tree-sitter.svg)](https://crates.io/crates/tree-sitter)
+[![crates.io](https://img.shields.io/crates/dr/tree-sitter.svg)](https://crates.io/crates/tree-sitter)
+[![crates.io](https://img.shields.io/crates/dv/tree-sitter.svg)](https://crates.io/crates/tree-sitter)
+
 Rust bindings to the [Tree-sitter][] parsing library.
 
 ### Basic Usage
