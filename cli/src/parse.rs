@@ -5,7 +5,7 @@ use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 use std::time::Instant;
 use std::{fmt, fs, usize};
-use tree_sitter::{InputEdit, Language, LogType, Parser, Point, Tree};
+use tree_sitter::{InputEdit, Language, LogType, Node, Parser, Point, Tree, TreeCursor};
 
 #[derive(Debug)]
 pub struct Edit {
@@ -29,6 +29,307 @@ impl fmt::Display for Stats {
                  (self.successful_parses as f64) / (self.total_parses as f64) * 100.0);
     }
 }
+enum Step<'c, 'tree> {
+    AfterChildren(&'c StepContext<'tree>),
+    Ident(&'c StepContext<'tree>),
+    Node(&'c StepContext<'tree>),
+    LF(&'c StepContext<'tree>),
+}
+
+struct StepContext<'tree> {
+    node: Node<'tree>,
+    field_name: Option<&'static str>,
+    indent_level: usize,
+}
+
+enum RenderResult {
+    Str(&'static str),
+    String(String),
+}
+
+impl From<&'static str> for RenderResult {
+    fn from(s: &'static str) -> Self {
+        RenderResult::Str(s)
+    }
+}
+
+impl From<String> for RenderResult {
+    fn from(s: String) -> Self {
+        RenderResult::String(s)
+    }
+}
+
+trait RenderStep {
+    fn render_step(&mut self, step: Step) -> RenderResult;
+}
+
+struct StepRender<'a, T>
+where
+    T: Write,
+{
+    out: &'a mut T,
+    buf: String,
+    render: &'a mut dyn RenderStep,
+    show_all: bool,
+}
+
+impl<'a, T> StepRender<'a, T>
+where
+    T: Write,
+{
+    pub fn new(out: &'a mut T, render: &'a mut dyn RenderStep) -> Self {
+        Self {
+            out,
+            buf: String::new(),
+            render,
+            show_all: false,
+        }
+    }
+
+    pub fn show_all(mut self, flag: bool) -> Self {
+        self.show_all = flag;
+        self
+    }
+
+    #[inline]
+    fn render_line(&mut self) -> Result<()> {
+        self.out.write_all(self.buf.as_bytes())?;
+        self.buf.clear();
+        Ok(())
+    }
+
+    #[inline]
+    fn combine(&mut self, step: Step) {
+        match self.render.render_step(step) {
+            RenderResult::Str(s) => self.buf.push_str(s),
+            RenderResult::String(s) => self.buf.push_str(s.as_ref()),
+        }
+    }
+}
+
+struct NodeTreeWithRanges;
+
+impl RenderStep for NodeTreeWithRanges {
+    fn render_step(&mut self, step: Step) -> RenderResult {
+        match step {
+            Step::AfterChildren(_) => ")".into(),
+            Step::Node(c) => {
+                let start = c.node.start_position();
+                let end = c.node.end_position();
+                let mut buf = if let Some(name) = c.field_name {
+                    format!("{}: ", name)
+                } else {
+                    "".into()
+                };
+                buf.push_str(
+                    format!(
+                        "({} [{}, {}] - [{}, {}]",
+                        c.node.kind(),
+                        start.row,
+                        start.column,
+                        end.row,
+                        end.column
+                    )
+                    .as_str(),
+                );
+                buf.into()
+            }
+            Step::Ident(c) => "  ".repeat(c.indent_level).into(),
+            Step::LF(_) => "\n".into(),
+        }
+    }
+}
+
+struct NodeTree(bool);
+impl RenderStep for NodeTree {
+    fn render_step(&mut self, step: Step) -> RenderResult {
+        match step {
+            Step::AfterChildren(_) => "".into(),
+            Step::Node(c) => {
+                let start = c.node.start_position();
+                let end = c.node.end_position();
+                let mut buf = if let Some(name) = c.field_name {
+                    format!("{}: ", name)
+                } else {
+                    "".into()
+                };
+
+                if self.0 {
+                    buf.push_str(
+                        format!(
+                            "{} [{}, {}] - [{}, {}]",
+                            c.node.kind(),
+                            start.row,
+                            start.column,
+                            end.row,
+                            end.column
+                        )
+                        .as_str(),
+                    );
+                } else {
+                    buf.push_str(c.node.kind());
+                }
+                buf.into()
+            }
+            Step::Ident(c) => "  ".repeat(c.indent_level).into(),
+            Step::LF(_) => "\n".into(),
+        }
+    }
+}
+
+struct NodeTreeWithRangesLine<'a> {
+    dquote_unnamed: bool,
+    source_code: Option<&'a [u8]>,
+    new_line_started: bool,
+    last_line_no: usize,
+}
+
+impl<'a> NodeTreeWithRangesLine<'a> {
+    pub fn new() -> Self {
+        Self {
+            dquote_unnamed: false,
+            source_code: None,
+            new_line_started: false,
+            last_line_no: 0,
+        }
+    }
+
+    pub fn dquote_unnamed(mut self, flag: bool) -> Self {
+        self.dquote_unnamed = flag;
+        self
+    }
+
+    pub fn show_node_values(mut self, source_code: Option<&'a [u8]>) -> Self {
+        self.source_code = source_code;
+        self
+    }
+}
+
+impl RenderStep for NodeTreeWithRangesLine<'_> {
+    fn render_step(&mut self, step: Step) -> RenderResult {
+        match step {
+            Step::Ident(c) => {
+                let start = c.node.start_position();
+                let end = c.node.end_position();
+                format!(
+                    "{}:{:<2} - {}:{:<2} | {}",
+                    start.row,
+                    start.column,
+                    end.row,
+                    end.column,
+                    "  ".repeat(c.indent_level)
+                )
+                .into()
+            }
+            Step::Node(c) => {
+                let mut buf = if let Some(name) = c.field_name {
+                    format!("{}: ", name)
+                } else {
+                    "".into()
+                };
+                if self.dquote_unnamed && !c.node.is_named() {
+                    buf.push_str(
+                        format!(
+                            "\"{}\"",
+                            c.node
+                                .kind()
+                                .replace("\\", "\\\\")
+                                .replace("\t", "\\t")
+                                .replace("\n", "\\n")
+                                // .replace("\v", "\\v") // error: unknown character escape
+                                // .replace("\f", "\\f") // error: unknown character escape
+                                .replace("\r", "\\r")
+                        )
+                        .as_str(),
+                    );
+                } else {
+                    buf.push_str(c.node.kind());
+                }
+                if let Some(source_code) = self.source_code {
+                    if c.node.is_named() && (c.node.child_count() == 0 || self.new_line_started) {
+                        let start = c.node.start_byte();
+                        let end = c.node.end_byte();
+                        let value = std::str::from_utf8(&source_code[start..end]).unwrap();
+                        buf.push_str(format!(" `{}`", value.replace("\n", "\\n")).as_str());
+                    }
+                }
+                self.new_line_started = false;
+                buf.into()
+            }
+            Step::AfterChildren(_) => "".into(),
+            Step::LF(c) => {
+                let current_line_no = c.node.start_position().row;
+                if current_line_no > self.last_line_no {
+                    self.last_line_no = current_line_no;
+                    self.new_line_started = true;
+                }
+                "\n".into()
+            }
+        }
+    }
+}
+
+impl<'a, T> Render for StepRender<'a, T>
+where
+    T: Write,
+{
+    fn render(&mut self, cursor: &mut TreeCursor) -> Result<()> {
+        let mut indent_level = 0;
+        let mut needs_visit_children = true;
+        let mut needs_newline = false;
+        loop {
+            let node = cursor.node();
+            let is_named = node.is_named();
+            let context = StepContext {
+                node,
+                field_name: cursor.field_name(),
+                indent_level,
+            };
+            if needs_visit_children {
+                if is_named || self.show_all {
+                    if needs_newline {
+                        self.combine(Step::LF(&context));
+                        self.render_line()?;
+                    }
+                    needs_newline = true;
+                    self.combine(Step::Ident(&context));
+                    self.combine(Step::Node(&context));
+                }
+                // Traverse logic --------------
+                if cursor.goto_first_child() {
+                    needs_visit_children = true;
+                    indent_level += 1;
+                } else {
+                    needs_visit_children = false;
+                }
+                //------------------------------
+            } else {
+                if is_named || self.show_all {
+                    self.combine(Step::AfterChildren(&context));
+                }
+                // Traverse logic --------------
+                if cursor.goto_next_sibling() {
+                    needs_visit_children = true;
+                } else if cursor.goto_parent() {
+                    needs_visit_children = false;
+                    indent_level -= 1;
+                } else {
+                    break;
+                }
+                //------------------------------
+            }
+        }
+        self.render_line()?;
+        println!();
+        Ok(())
+    }
+}
+
+trait Render {
+    fn render(&mut self, cursor: &mut TreeCursor) -> Result<()>;
+}
+
+// --------------------------------------------------------------------
 
 pub fn parse_file_at_path(
     language: Language,
@@ -96,59 +397,16 @@ pub fn parse_file_at_path(
         let mut cursor = tree.walk();
 
         if !quiet {
-            let mut needs_newline = false;
-            let mut indent_level = 0;
-            let mut did_visit_children = false;
-            loop {
-                let node = cursor.node();
-                let is_named = node.is_named();
-                if did_visit_children {
-                    if is_named {
-                        stdout.write(b")")?;
-                        needs_newline = true;
-                    }
-                    if cursor.goto_next_sibling() {
-                        did_visit_children = false;
-                    } else if cursor.goto_parent() {
-                        did_visit_children = true;
-                        indent_level -= 1;
-                    } else {
-                        break;
-                    }
-                } else {
-                    if is_named {
-                        if needs_newline {
-                            stdout.write(b"\n")?;
-                        }
-                        for _ in 0..indent_level {
-                            stdout.write(b"  ")?;
-                        }
-                        let start = node.start_position();
-                        let end = node.end_position();
-                        if let Some(field_name) = cursor.field_name() {
-                            write!(&mut stdout, "{}: ", field_name)?;
-                        }
-                        write!(
-                            &mut stdout,
-                            "({} [{}, {}] - [{}, {}]",
-                            node.kind(),
-                            start.row,
-                            start.column,
-                            end.row,
-                            end.column
-                        )?;
-                        needs_newline = true;
-                    }
-                    if cursor.goto_first_child() {
-                        did_visit_children = false;
-                        indent_level += 1;
-                    } else {
-                        did_visit_children = true;
-                    }
-                }
-            }
+            StepRender::new(
+                &mut stdout,
+                &mut NodeTreeWithRangesLine::new()
+                    .dquote_unnamed(true)
+                    .show_node_values(Some(&source_code)),
+            )
+            .show_all(true)
+            .render(&mut cursor)?;
+
             cursor.reset(tree.root_node());
-            println!("");
         }
 
         if debug_xml {
