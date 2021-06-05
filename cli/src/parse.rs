@@ -247,10 +247,12 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                 }
                 if let Some(source_code) = self.source_code {
                     if c.node.is_named() && (c.node.child_count() == 0 || self.new_line_started) {
-                        let start = c.node.start_byte();
-                        let end = c.node.end_byte();
-                        let value = std::str::from_utf8(&source_code[start..end]).unwrap();
-                        buf.push_str(format!(" `{}`", value.replace("\n", "\\n")).as_str());
+                        if c.node.start_position().row == c.node.end_position().row {
+                            let start = c.node.start_byte();
+                            let end = c.node.end_byte();
+                            let value = std::str::from_utf8(&source_code[start..end]).unwrap();
+                            buf.push_str(format!(" `{}`", value.replace("\n", "\\n")).as_str());
+                        }
                     }
                 }
                 self.new_line_started = false;
