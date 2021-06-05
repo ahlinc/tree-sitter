@@ -217,15 +217,15 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
             Step::Ident(c) => {
                 let start = c.node.start_position();
                 let end = c.node.end_position();
-                format!(
-                    "{}:{:<2} - {}:{:<2} | {}",
-                    start.row,
-                    start.column,
-                    end.row,
-                    end.column,
-                    "  ".repeat(c.indent_level)
-                )
-                .into()
+                let mut buf = format!(
+                    "{}:{:<2} - {}:{:<2} ",
+                    start.row, start.column, end.row, end.column,
+                );
+                let indent = 16_usize.saturating_sub(buf.len());
+                buf.push_str(" ".repeat(indent).as_str());
+                buf.push_str("| ");
+                buf.push_str("  ".repeat(c.indent_level).as_str());
+                buf.into()
             }
             Step::Node(c) => {
                 let mut buf = if let Some(name) = c.field_name {
