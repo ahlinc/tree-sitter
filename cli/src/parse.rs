@@ -1,6 +1,7 @@
 use super::util;
 use ansi_term::Colour;
 use anyhow::{anyhow, Context, Result};
+use std::collections::HashMap;
 use std::io::{self, Write};
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
@@ -182,7 +183,7 @@ struct NodeTreeWithRangesLine<'a> {
     dquote_unnamed: bool,
     source_code: Option<&'a [u8]>,
     new_line_started: bool,
-    last_line_no: usize,
+    last_line_no: Cell<usize>,
 }
 
 impl<'a> NodeTreeWithRangesLine<'a> {
@@ -190,13 +191,14 @@ impl<'a> NodeTreeWithRangesLine<'a> {
     const FIELD: Colour = Colour::RGB(177, 220, 253);
     const NONTERM: Colour = Colour::RGB(117, 187, 253);
     const TERM: Colour = Colour::RGB(219, 219, 173);
+    const LINE: Colour = Colour::RGB(216, 219, 161);
 
     pub fn new() -> Self {
         Self {
             dquote_unnamed: false,
             source_code: None,
             new_line_started: false,
-            last_line_no: 0,
+            last_line_no: Cell::new(usize::MAX),
         }
     }
 
@@ -217,13 +219,23 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
             Step::Ident(c) => {
                 let start = c.node.start_position();
                 let end = c.node.end_position();
-                let mut buf = format!(
-                    "{}:{:<2} - {}:{:<2} ",
-                    start.row, start.column, end.row, end.column,
-                );
+                let mut buf = if self.last_line_no.get() != c.node.start_position().row {
+                    Self::LINE
+                        .paint(format!(
+                            "{}:{:<2} - {}:{:<2} ",
+                            start.row, start.column, end.row, end.column,
+                        ))
+                        .to_string()
+                } else {
+                    format!(
+                        "{}:{:<2} - {}:{:<2} ",
+                        start.row, start.column, end.row, end.column,
+                    )
+                };
                 let indent = c.indent_level * 2 + 14;
                 let indent = indent.saturating_sub(buf.len());
                 buf.push_str(" ".repeat(indent).as_str());
+                self.last_line_no.replace(c.node.start_position().row);
                 buf.into()
             }
             Step::Node(c) => {
