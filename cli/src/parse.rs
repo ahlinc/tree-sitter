@@ -1,4 +1,5 @@
 use super::util;
+use ansi_term::Colour;
 use anyhow::{anyhow, Context, Result};
 use std::io::{self, Write};
 use std::path::Path;
@@ -185,6 +186,11 @@ struct NodeTreeWithRangesLine<'a> {
 }
 
 impl<'a> NodeTreeWithRangesLine<'a> {
+    const COMMENT: Colour = Colour::RGB(0x76, 0x76, 0x76);
+    const FIELD: Colour = Colour::RGB(177, 220, 253);
+    const NONTERM: Colour = Colour::RGB(117, 187, 253);
+    const TERM: Colour = Colour::RGB(219, 219, 173);
+
     pub fn new() -> Self {
         Self {
             dquote_unnamed: false,
@@ -223,27 +229,29 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
             }
             Step::Node(c) => {
                 let mut buf = if let Some(name) = c.field_name {
-                    format!("{}: ", name)
+                    Self::FIELD.paint(format!("{}: ", name)).to_string()
                 } else {
                     "".into()
                 };
                 if self.dquote_unnamed && !c.node.is_named() {
+                    let node = c
+                        .node
+                        .kind()
+                        .replace("\\", "\\\\")
+                        .replace("\t", "\\t")
+                        .replace("\n", "\\n")
+                        // .replace("\v", "\\v") // error: unknown character escape
+                        // .replace("\f", "\\f") // error: unknown character escape
+                        .replace("\r", "\\r")
+                        .replace("\"", "\\\"");
                     buf.push_str(
-                        format!(
-                            "\"{}\"",
-                            c.node
-                                .kind()
-                                .replace("\\", "\\\\")
-                                .replace("\t", "\\t")
-                                .replace("\n", "\\n")
-                                // .replace("\v", "\\v") // error: unknown character escape
-                                // .replace("\f", "\\f") // error: unknown character escape
-                                .replace("\r", "\\r")
-                        )
-                        .as_str(),
+                        Self::TERM
+                            .paint(format!("\"{}\"", node))
+                            .to_string()
+                            .as_str(),
                     );
                 } else {
-                    buf.push_str(c.node.kind());
+                    buf.push_str(Self::NONTERM.paint(c.node.kind()).to_string().as_str());
                 }
                 if let Some(source_code) = self.source_code {
                     if c.node.is_named() && (c.node.child_count() == 0 || self.new_line_started) {
@@ -251,7 +259,7 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                             let start = c.node.start_byte();
                             let end = c.node.end_byte();
                             let value = std::str::from_utf8(&source_code[start..end]).unwrap();
-                            buf.push_str(format!(" `{}`", value.replace("\n", "\\n")).as_str());
+                            buf.push_str(format!(" `{}`", Self::COMMENT.paint(value)).as_str());
                         }
                     }
                 }
