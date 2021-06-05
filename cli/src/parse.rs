@@ -183,7 +183,7 @@ struct NodeTreeWithRangesLine<'a> {
     dquote_unnamed: bool,
     source_code: Option<&'a [u8]>,
     new_line_started: bool,
-    last_line_no: Cell<usize>,
+    last_line_no: usize,
 }
 
 impl<'a> NodeTreeWithRangesLine<'a> {
@@ -191,14 +191,14 @@ impl<'a> NodeTreeWithRangesLine<'a> {
     const FIELD: Colour = Colour::RGB(177, 220, 253);
     const NONTERM: Colour = Colour::RGB(117, 187, 253);
     const TERM: Colour = Colour::RGB(219, 219, 173);
-    const LINE: Colour = Colour::RGB(216, 219, 161);
+    const LINE: Colour = Colour::RGB(122, 209, 143);
 
     pub fn new() -> Self {
         Self {
             dquote_unnamed: false,
             source_code: None,
             new_line_started: false,
-            last_line_no: Cell::new(usize::MAX),
+            last_line_no: usize::MAX,
         }
     }
 
@@ -219,23 +219,20 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
             Step::Ident(c) => {
                 let start = c.node.start_position();
                 let end = c.node.end_position();
-                let mut buf = if self.last_line_no.get() != c.node.start_position().row {
-                    Self::LINE
-                        .paint(format!(
-                            "{}:{:<2} - {}:{:<2} ",
-                            start.row, start.column, end.row, end.column,
-                        ))
-                        .to_string()
-                } else {
-                    format!(
-                        "{}:{:<2} - {}:{:<2} ",
-                        start.row, start.column, end.row, end.column,
-                    )
-                };
+                let mut buf = String::new();
+                let num_range = format!(
+                    "{}:{:<2} - {}:{:<2} ",
+                    start.row, start.column, end.row, end.column,
+                );
                 let indent = c.indent_level * 2 + 14;
-                let indent = indent.saturating_sub(buf.len());
+                let indent = indent.saturating_sub(num_range.len());
+                if self.last_line_no != c.node.start_position().row {
+                    buf.push_str(Self::LINE.paint(num_range).to_string().as_str())
+                } else {
+                    buf.push_str(num_range.as_str())
+                }
                 buf.push_str(" ".repeat(indent).as_str());
-                self.last_line_no.replace(c.node.start_position().row);
+                self.last_line_no = c.node.start_position().row;
                 buf.into()
             }
             Step::Node(c) => {
@@ -278,12 +275,8 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                 buf.into()
             }
             Step::AfterChildren(_) => "".into(),
-            Step::LF(c) => {
-                let current_line_no = c.node.start_position().row;
-                if current_line_no > self.last_line_no {
-                    self.last_line_no = current_line_no;
-                    self.new_line_started = true;
-                }
+            Step::LF(_) => {
+                self.new_line_started = true;
                 "\n".into()
             }
         }
