@@ -221,10 +221,9 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                     "{}:{:<2} - {}:{:<2} ",
                     start.row, start.column, end.row, end.column,
                 );
-                let indent = 16_usize.saturating_sub(buf.len());
+                let indent = c.indent_level * 2 + 16;
+                let indent = indent.saturating_sub(buf.len());
                 buf.push_str(" ".repeat(indent).as_str());
-                buf.push_str("| ");
-                buf.push_str("  ".repeat(c.indent_level).as_str());
                 buf.into()
             }
             Step::Node(c) => {
