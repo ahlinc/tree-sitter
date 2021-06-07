@@ -263,7 +263,10 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                 }
                 if let Some(source_code) = self.source_code {
                     if c.node.is_named() && (c.node.child_count() == 0 || self.new_line_started) {
-                        if c.node.child(0).map_or(true, |n| n.range() != c.node.range()) {
+                        if c.node
+                            .child(0)
+                            .map_or(true, |n| n.range() != c.node.range() || !n.is_named())
+                        {
                             if c.node.start_position().row == c.node.end_position().row {
                                 let start = c.node.start_byte();
                                 let end = c.node.end_byte();
