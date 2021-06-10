@@ -154,7 +154,7 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                 let end = c.node.end_position();
                 let mut buf = String::new();
                 let num_range = format!(
-                    "{}:{:<2} - {}:{:<2} ",
+                    "{}:{:<2} - {}:{:<2}",
                     start.row, start.column, end.row, end.column,
                 );
                 let indent = c.indent_level * 2 + 14;
@@ -164,7 +164,12 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                 } else {
                     buf.push_str(num_range.as_str())
                 }
-                buf.push_str(" ".repeat(indent).as_str());
+                if c.node.has_error() {
+                    buf.push_str(" ".repeat(indent).as_str());
+                    buf.push_str(Self::ERROR.bold().paint("·").to_string().as_str());
+                } else {
+                    buf.push_str(" ".repeat(indent + 1).as_str());
+                }
                 self.last_line_no = c.node.start_position().row;
                 buf.into()
             }
