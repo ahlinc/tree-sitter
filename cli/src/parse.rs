@@ -170,9 +170,6 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
             }
             Step::Node(c) => {
                 let mut buf = String::with_capacity(120);
-                if c.node.is_extra() {
-                    buf.push_str(Self::EXTRA.bold().paint("EXTRA: ").to_string().as_str());
-                }
                 if c.node.is_missing() {
                     buf.push_str(Self::MISSING.bold().paint("MISSING: ").to_string().as_str());
                 }
@@ -207,6 +204,8 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                 } else {
                     let style = if c.node.is_error() {
                         Self::ERROR.bold()
+                    } else if c.node.is_extra() {
+                        Self::EXTRA.normal()
                     } else {
                         Self::NONTERM.normal()
                     };
