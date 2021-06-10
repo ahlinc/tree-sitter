@@ -193,6 +193,7 @@ impl<'a> NodeTreeWithRangesLine<'a> {
     const NONTERM: Colour = Colour::RGB(117, 187, 253);
     const TERM: Colour = Colour::RGB(219, 219, 173);
     const MISSING: Colour = Colour::RGB(255, 153, 51);
+    const ERROR: Colour = Colour::RGB(255, 51, 51);
 
     pub fn new() -> Self {
         Self {
@@ -242,9 +243,17 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                     buf.push_str(Self::MISSING.bold().paint("MISSING: ").to_string().as_str());
                 }
                 if let Some(name) = c.field_name {
-                    buf.push_str(Self::FIELD.paint(format!("{}: ", name)).to_string().as_str());
+                    buf.push_str(
+                        Self::FIELD
+                            .paint(format!("{}: ", name))
+                            .to_string()
+                            .as_str(),
+                    );
                 }
                 if self.dquote_unnamed && !c.node.is_named() {
+                    if c.node.is_error() {
+                        buf.push_str(Self::ERROR.bold().paint("ERROR: ").to_string().as_str());
+                    }
                     let node = c
                         .node
                         .kind()
@@ -262,7 +271,12 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                             .as_str(),
                     );
                 } else {
-                    buf.push_str(Self::NONTERM.paint(c.node.kind()).to_string().as_str());
+                    let style = if c.node.is_error() {
+                        Self::ERROR.bold()
+                    } else {
+                        Self::NONTERM.normal()
+                    };
+                    buf.push_str(style.paint(c.node.kind()).to_string().as_str());
                 }
                 if let Some(source_code) = self.source_code {
                     if c.node.is_named() && (c.node.child_count() == 0 || self.new_line_started) {
