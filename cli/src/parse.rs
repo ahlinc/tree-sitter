@@ -124,7 +124,7 @@ impl<'a> NodeTreeWithRangesLine<'a> {
     const TERM: Colour = Colour::RGB(219, 219, 173);
     const MISSING: Colour = Colour::RGB(255, 153, 51);
     const ERROR: Colour = Colour::RGB(255, 51, 51);
-    const EXTRA: Colour = Colour::RGB(178, 102, 255);
+    const EXTRA: Colour = Colour::RGB(153, 153, 255);
 
     pub fn new() -> Self {
         Self {
