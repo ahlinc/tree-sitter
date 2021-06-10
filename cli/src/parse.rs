@@ -192,6 +192,7 @@ impl<'a> NodeTreeWithRangesLine<'a> {
     const COMMENT: Colour = Colour::RGB(118, 118, 118);
     const NONTERM: Colour = Colour::RGB(117, 187, 253);
     const TERM: Colour = Colour::RGB(219, 219, 173);
+    const MISSING: Colour = Colour::RGB(255, 153, 51);
 
     pub fn new() -> Self {
         Self {
@@ -236,11 +237,13 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                 buf.into()
             }
             Step::Node(c) => {
-                let mut buf = if let Some(name) = c.field_name {
-                    Self::FIELD.paint(format!("{}: ", name)).to_string()
-                } else {
-                    "".into()
-                };
+                let mut buf = String::with_capacity(120);
+                if c.node.is_missing() {
+                    buf.push_str(Self::MISSING.bold().paint("MISSING: ").to_string().as_str());
+                }
+                if let Some(name) = c.field_name {
+                    buf.push_str(Self::FIELD.paint(format!("{}: ", name)).to_string().as_str());
+                }
                 if self.dquote_unnamed && !c.node.is_named() {
                     let node = c
                         .node
