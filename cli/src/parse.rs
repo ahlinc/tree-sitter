@@ -194,6 +194,7 @@ impl<'a> NodeTreeWithRangesLine<'a> {
     const TERM: Colour = Colour::RGB(219, 219, 173);
     const MISSING: Colour = Colour::RGB(255, 153, 51);
     const ERROR: Colour = Colour::RGB(255, 51, 51);
+    const EXTRA: Colour = Colour::RGB(178, 102, 255);
 
     pub fn new() -> Self {
         Self {
@@ -239,6 +240,9 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
             }
             Step::Node(c) => {
                 let mut buf = String::with_capacity(120);
+                if c.node.is_extra() {
+                    buf.push_str(Self::EXTRA.bold().paint("EXTRA: ").to_string().as_str());
+                }
                 if c.node.is_missing() {
                     buf.push_str(Self::MISSING.bold().paint("MISSING: ").to_string().as_str());
                 }
