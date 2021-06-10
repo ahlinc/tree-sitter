@@ -187,11 +187,11 @@ struct NodeTreeWithRangesLine<'a> {
 }
 
 impl<'a> NodeTreeWithRangesLine<'a> {
-    const COMMENT: Colour = Colour::RGB(0x76, 0x76, 0x76);
+    const LINE: Colour = Colour::RGB(122, 209, 143);
     const FIELD: Colour = Colour::RGB(177, 220, 253);
+    const COMMENT: Colour = Colour::RGB(118, 118, 118);
     const NONTERM: Colour = Colour::RGB(117, 187, 253);
     const TERM: Colour = Colour::RGB(219, 219, 173);
-    const LINE: Colour = Colour::RGB(122, 209, 143);
 
     pub fn new() -> Self {
         Self {
