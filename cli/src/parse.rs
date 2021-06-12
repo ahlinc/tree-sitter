@@ -125,6 +125,7 @@ impl<'a> NodeTreeWithRangesLine<'a> {
     const MISSING: Colour = Colour::RGB(255, 153, 51);
     const ERROR: Colour = Colour::RGB(255, 51, 51);
     const EXTRA: Colour = Colour::RGB(153, 153, 255);
+    const EDIT: Colour = Colour::RGB(255, 255, 102);
 
     pub fn new() -> Self {
         Self {
@@ -158,17 +159,24 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                     start.row, start.column, end.row, end.column,
                 );
                 let indent = c.indent_level * 2 + 14;
-                let indent = indent.saturating_sub(num_range.len());
+                let mut indent = indent.saturating_sub(num_range.len());
                 if self.last_line_no != c.node.start_position().row {
                     buf.push_str(Self::LINE.paint(num_range).to_string().as_str())
                 } else {
                     buf.push_str(num_range.as_str())
                 }
+                if !c.node.has_error() {
+                    indent += 1;
+                }
+                if !c.node.has_changes() {
+                    indent += 1;
+                }
+                buf.push_str(" ".repeat(indent).as_str());
+                if c.node.has_changes() {
+                    buf.push_str(Self::EDIT.bold().paint("·").to_string().as_str());
+                }
                 if c.node.has_error() {
-                    buf.push_str(" ".repeat(indent).as_str());
                     buf.push_str(Self::ERROR.bold().paint("·").to_string().as_str());
-                } else {
-                    buf.push_str(" ".repeat(indent + 1).as_str());
                 }
                 self.last_line_no = c.node.start_position().row;
                 buf.into()
