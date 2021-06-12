@@ -240,6 +240,19 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                                     let next_line = node_lines.next();
                                     match line {
                                         Some(line) => {
+                                            if next_line.is_some() {
+                                                buf.push_str(
+                                                    format!(" `{}\\n`", Self::TEXT.paint(line))
+                                                        .as_str(),
+                                                )
+                                            } else {
+                                                buf.push_str(
+                                                    format!(" `{}`", Self::TEXT.paint(line))
+                                                        .as_str(),
+                                                );
+                                                break;
+                                            }
+                                            row += 1;
                                             let num_range = format!(
                                                 "{}:{:<2} - {}:{:<2}",
                                                 row,
@@ -256,15 +269,6 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                                                 )
                                                 .as_str(),
                                             );
-                                            buf.push_str(
-                                                if next_line.is_some() {
-                                                    format!(" `{}\\n`", Self::TEXT.paint(line))
-                                                } else {
-                                                    format!(" `{}`", Self::TEXT.paint(line))
-                                                }
-                                                .as_str(),
-                                            );
-                                            row += 1;
                                         }
                                         None => break,
                                     }
