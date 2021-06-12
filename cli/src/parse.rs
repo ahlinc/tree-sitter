@@ -271,8 +271,9 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                                         buf.push_str(&num_range.as_str());
                                         buf.push_str(
                                             " ".repeat(
-                                                // -2 due to coloring escape codes
-                                                padding.saturating_sub(num_range.len() - 2),
+                                                // TODO: Use separate buffer for measurements.
+                                                // -3 due to coloring escape codes.
+                                                padding.saturating_sub(num_range.len() - 3),
                                             )
                                             .as_str(),
                                         );
