@@ -119,7 +119,7 @@ struct NodeTreeWithRangesLine<'a> {
 impl<'a> NodeTreeWithRangesLine<'a> {
     const LINE: Colour = Colour::RGB(122, 209, 143);
     const FIELD: Colour = Colour::RGB(177, 220, 253);
-    const COMMENT: Colour = Colour::RGB(118, 118, 118);
+    const TEXT: Colour = Colour::RGB(118, 118, 118);
     const NONTERM: Colour = Colour::RGB(117, 187, 253);
     const TERM: Colour = Colour::RGB(219, 219, 173);
     const MISSING: Colour = Colour::RGB(255, 153, 51);
@@ -226,7 +226,7 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                                 let start = c.node.start_byte();
                                 let end = c.node.end_byte();
                                 let value = std::str::from_utf8(&source_code[start..end]).unwrap();
-                                buf.push_str(format!(" `{}`", Self::COMMENT.paint(value)).as_str());
+                                buf.push_str(format!(" `{}`", Self::TEXT.paint(value)).as_str());
                             }
                         }
                     }
