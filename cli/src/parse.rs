@@ -228,6 +228,7 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                                 let value = std::str::from_utf8(&source_code[start..end]).unwrap();
                                 buf.push_str(format!(" `{}`", Self::TEXT.paint(value)).as_str());
                             } else if c.node.child_count() == 0 {
+                                // TODO: Implement first line shift in case of captured lines have padding
                                 let value = std::str::from_utf8(
                                     &source_code[c.node.start_byte()..c.node.end_byte()],
                                 )
@@ -238,39 +239,35 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                                 let mut line = node_lines.next();
                                 loop {
                                     let next_line = node_lines.next();
-                                    match line {
-                                        Some(line) => {
-                                            if next_line.is_some() {
-                                                buf.push_str(
-                                                    format!(" `{}\\n`", Self::TEXT.paint(line))
-                                                        .as_str(),
-                                                )
-                                            } else {
-                                                buf.push_str(
-                                                    format!(" `{}`", Self::TEXT.paint(line))
-                                                        .as_str(),
-                                                );
-                                                break;
-                                            }
-                                            row += 1;
-                                            let num_range = format!(
-                                                "{}:{:<2} - {}:{:<2}",
-                                                row,
-                                                0,
-                                                row,
-                                                line.len(),
-                                            );
-                                            buf.push_str("\n");
-                                            buf.push_str(&num_range.as_str());
+                                    if let Some(line) = line {
+                                        if next_line.is_some() {
                                             buf.push_str(
-                                                " ".repeat(
-                                                    // -2 due to coloring escape codes
-                                                    padding.saturating_sub(num_range.len() - 2),
-                                                )
-                                                .as_str(),
+                                                format!(" `{}\\n`", Self::TEXT.paint(line))
+                                                    .as_str(),
+                                            )
+                                        } else {
+                                            buf.push_str(
+                                                format!(" `{}`", Self::TEXT.paint(line)).as_str(),
                                             );
+                                            break;
                                         }
-                                        None => break,
+                                        row += 1;
+                                        let num_range = format!(
+                                            "{}:{:<2} - {}:{:<2}",
+                                            row,
+                                            0,
+                                            row,
+                                            line.len(),
+                                        );
+                                        buf.push_str("\n");
+                                        buf.push_str(&num_range.as_str());
+                                        buf.push_str(
+                                            " ".repeat(
+                                                // -2 due to coloring escape codes
+                                                padding.saturating_sub(num_range.len() - 2),
+                                            )
+                                            .as_str(),
+                                        );
                                     }
                                     line = next_line;
                                 }
