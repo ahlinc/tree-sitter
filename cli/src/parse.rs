@@ -586,18 +586,27 @@ fn parse_edit_flag(source_code: &Vec<u8>, flag: &str) -> Result<Edit> {
     let deleted_length = parts.next().ok_or_else(error)?;
     let inserted_text = parts.collect::<Vec<_>>().join(" ").into_bytes();
 
-    // Position can either be a byte_offset or row,column pair, separated by a comma
-    let position = if position == "$" {
-        source_code.len()
-    } else if position.contains(",") {
-        let mut parts = position.split(",");
-        let row = parts.next().ok_or_else(error)?;
-        let row = usize::from_str_radix(row, 10).map_err(|_| error())?;
-        let column = parts.next().ok_or_else(error)?;
-        let column = usize::from_str_radix(column, 10).map_err(|_| error())?;
-        offset_for_position(source_code, Point { row, column })
+    let parts = if position.contains(",") {
+        Some(position.split(","))
+    } else if position.contains(":") {
+        Some(position.split(":"))
     } else {
-        usize::from_str_radix(position, 10).map_err(|_| error())?
+        None
+    };
+
+    // Position can either be a byte_offset or row,column pair, separated by a comma
+    let position = {
+        if let Some(mut parts) = parts {
+            let row = parts.next().ok_or_else(error)?;
+            let row = usize::from_str_radix(row, 10).map_err(|_| error())?;
+            let column = parts.next().ok_or_else(error)?;
+            let column = usize::from_str_radix(column, 10).map_err(|_| error())?;
+            offset_for_position(source_code, Point { row, column })
+        } else if position == "$" {
+            source_code.len()
+        } else {
+            usize::from_str_radix(position, 10).map_err(|_| error())?
+        }
     };
 
     // Deleted length must be a byte count.
