@@ -87,7 +87,8 @@ fn run() -> Result<()> {
                         .takes_value(true)
                         .multiple(true)
                         .number_of_values(1),
-                ),
+                )
+                .arg(Arg::with_name("apply-edits").long("apply-edit").short("a")),
         )
         .subcommand(
             SubCommand::with_name("query")
@@ -280,6 +281,7 @@ fn run() -> Result<()> {
             let edits = matches
                 .values_of("edits")
                 .map_or(Vec::new(), |e| e.collect());
+            let apply_edits = matches.is_present("apply-edits");
             let cancellation_flag = util::cancel_on_stdin();
 
             if debug {
@@ -310,6 +312,7 @@ fn run() -> Result<()> {
                     language,
                     path,
                     &edits,
+                    apply_edits,
                     max_path_length,
                     quiet,
                     time,

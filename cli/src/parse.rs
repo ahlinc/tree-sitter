@@ -361,6 +361,7 @@ pub fn parse_file_at_path(
     language: Language,
     path: &Path,
     edits: &Vec<&str>,
+    apply_edits: bool,
     max_path_length: usize,
     quiet: bool,
     print_time: bool,
@@ -411,8 +412,9 @@ pub fn parse_file_at_path(
         for (i, edit) in edits.iter().enumerate() {
             let edit = parse_edit_flag(&source_code, edit)?;
             perform_edit(&mut tree, &mut source_code, &edit);
-            tree = parser.parse(&source_code, Some(&tree)).unwrap();
-
+            if apply_edits {
+                tree = parser.parse(&source_code, Some(&tree)).unwrap();
+            }
             if debug_graph {
                 println!("AFTER {}:\n{}", i, String::from_utf8_lossy(&source_code));
             }
