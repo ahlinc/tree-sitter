@@ -227,7 +227,7 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                                 let end = c.node.end_byte();
                                 let value = std::str::from_utf8(&source_code[start..end]).unwrap();
                                 buf.push_str(format!(" `{}`", Self::TEXT.paint(value)).as_str());
-                            } else {
+                            } else if c.node.child_count() == 0 {
                                 let value = std::str::from_utf8(
                                     &source_code[c.node.start_byte()..c.node.end_byte()],
                                 )
