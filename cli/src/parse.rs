@@ -233,45 +233,42 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                                 )
                                 .unwrap();
                                 let padding = buf.len();
-                                let start = c.node.start_position();
-                                // let end = c.node.end_position();
-                                let mut row = start.row;
-                                // let mut cs = start.column;
-                                // let mut ce = end.column;
+                                let mut row = c.node.start_position().row;
                                 let mut node_lines = value.split("\n");
-                                if let Some(line) = node_lines.next() {
-                                    buf.push_str(format!(" `{}\\n`", Self::TEXT.paint(line)).as_str());
-                                    row += 1;
-                                    loop {
-                                        // cs = 0;
-                                        // ce = 0;
-                                        match node_lines.next() {
-                                            Some(line) => {
-                                                let num_range = format!(
-                                                    "{}:{:<2} - {}:{:<2}",
-                                                    row,
-                                                    0,
-                                                    row,
-                                                    line.len(),
-                                                );
-                                                buf.push_str("\n");
-                                                buf.push_str(&num_range.as_str());
-                                                buf.push_str(
-                                                    " ".repeat(
-                                                        // -2 due to coloring escape codes
-                                                        padding.saturating_sub(num_range.len() - 2),
-                                                    )
-                                                    .as_str(),
-                                                );
-                                                buf.push_str(
+                                let mut line = node_lines.next();
+                                loop {
+                                    let next_line = node_lines.next();
+                                    match line {
+                                        Some(line) => {
+                                            let num_range = format!(
+                                                "{}:{:<2} - {}:{:<2}",
+                                                row,
+                                                0,
+                                                row,
+                                                line.len(),
+                                            );
+                                            buf.push_str("\n");
+                                            buf.push_str(&num_range.as_str());
+                                            buf.push_str(
+                                                " ".repeat(
+                                                    // -2 due to coloring escape codes
+                                                    padding.saturating_sub(num_range.len() - 2),
+                                                )
+                                                .as_str(),
+                                            );
+                                            buf.push_str(
+                                                if next_line.is_some() {
                                                     format!(" `{}\\n`", Self::TEXT.paint(line))
-                                                        .as_str(),
-                                                );
-                                                row += 1;
-                                            }
-                                            None => break,
+                                                } else {
+                                                    format!(" `{}`", Self::TEXT.paint(line))
+                                                }
+                                                .as_str(),
+                                            );
+                                            row += 1;
                                         }
+                                        None => break,
                                     }
+                                    line = next_line;
                                 }
                             }
                         }
