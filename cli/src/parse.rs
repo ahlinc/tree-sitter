@@ -196,8 +196,8 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                         .replace("\\", "\\\\")
                         .replace("\t", "\\t")
                         .replace("\n", "\\n")
-                        // .replace("\v", "\\v") // error: unknown character escape
-                        // .replace("\f", "\\f") // error: unknown character escape
+                        .replace("\x0b", "\\v")
+                        .replace("\x0c", "\\f")
                         .replace("\r", "\\r")
                         .replace("\"", "\\\"");
                     buf.push_str(
