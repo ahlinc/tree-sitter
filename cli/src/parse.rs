@@ -182,14 +182,14 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                 buf.push_str(" ".repeat(indent).as_str());
                 if let Some(ref map) = self.original {
                     if !map.contains_key(&c.node.id()) {
-                        buf.push_str(Self::CHANGED.bold().paint("·").to_string().as_str());
+                        buf.push_str(Self::CHANGED.bold().paint("•").to_string().as_str());
                     }
                 }
                 if c.node.has_changes() {
-                    buf.push_str(Self::EDIT.bold().paint("·").to_string().as_str());
+                    buf.push_str(Self::EDIT.bold().paint("•").to_string().as_str());
                 }
                 if c.node.has_error() {
-                    buf.push_str(Self::ERROR.bold().paint("·").to_string().as_str());
+                    buf.push_str(Self::ERROR.bold().paint("•").to_string().as_str());
                 }
                 self.last_line_no = c.node.start_position().row;
                 buf.into()
