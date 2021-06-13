@@ -114,6 +114,7 @@ struct NodeTreeWithRangesLine<'a> {
     source_code: Option<&'a [u8]>,
     new_line_started: bool,
     last_line_no: usize,
+    original: Option<HashSet<usize>>,
 }
 
 impl<'a> NodeTreeWithRangesLine<'a> {
@@ -126,13 +127,15 @@ impl<'a> NodeTreeWithRangesLine<'a> {
     const ERROR: Colour = Colour::RGB(255, 51, 51);
     const EXTRA: Colour = Colour::RGB(153, 153, 255);
     const EDIT: Colour = Colour::RGB(255, 255, 102);
+    const CHANGED: Colour = Colour::RGB(0, 255, 0);
 
-    pub fn new() -> Self {
+    pub fn new(original: Option<HashSet<usize>>) -> Self {
         Self {
             dquote_unnamed: false,
             source_code: None,
             new_line_started: false,
             last_line_no: usize::MAX,
+            original,
         }
     }
 
@@ -171,7 +174,17 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                 if !c.node.has_changes() {
                     indent += 1;
                 }
+                if let Some(ref set) = self.original {
+                    if !set.contains(&c.node.id()) {
+                        indent += 1;
+                    }
+                }
                 buf.push_str(" ".repeat(indent).as_str());
+                if let Some(ref set) = self.original {
+                    if !set.contains(&c.node.id()) {
+                        buf.push_str(Self::CHANGED.bold().paint("·").to_string().as_str());
+                    }
+                }
                 if c.node.has_changes() {
                     buf.push_str(Self::EDIT.bold().paint("·").to_string().as_str());
                 }
@@ -406,6 +419,37 @@ pub fn parse_file_at_path(
     let mut stdout = stdout.lock();
 
     if let Some(mut tree) = tree {
+        let mut node_ids = None;
+        if apply_edits {
+            let mut set = HashSet::new();
+            let mut cursor = tree.walk();
+            let mut needs_visit_children = true;
+            loop {
+                let node = cursor.node();
+                set.insert(node.id());
+                if needs_visit_children {
+                    // Traverse logic --------------
+                    if cursor.goto_first_child() {
+                        needs_visit_children = true;
+                    } else {
+                        needs_visit_children = false;
+                    }
+                    //------------------------------
+                } else {
+                    // Traverse logic --------------
+                    if cursor.goto_next_sibling() {
+                        needs_visit_children = true;
+                    } else if cursor.goto_parent() {
+                        needs_visit_children = false;
+                    } else {
+                        break;
+                    }
+                    //------------------------------
+                }
+            }
+            node_ids.replace(set);
+        }
+
         if debug_graph && !edits.is_empty() {
             println!("BEFORE:\n{}", String::from_utf8_lossy(&source_code));
         }
@@ -428,7 +472,7 @@ pub fn parse_file_at_path(
         if !quiet {
             StepRender::new(
                 &mut stdout,
-                &mut NodeTreeWithRangesLine::new()
+                &mut NodeTreeWithRangesLine::new(node_ids)
                     .dquote_unnamed(true)
                     .show_node_values(Some(&source_code)),
             )
