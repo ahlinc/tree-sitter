@@ -114,7 +114,7 @@ struct NodeTreeWithRangesLine<'a> {
     source_code: Option<&'a [u8]>,
     new_line_started: bool,
     last_line_no: usize,
-    original: Option<HashSet<usize>>,
+    original: Option<HashMap<usize, String>>,
 }
 
 impl<'a> NodeTreeWithRangesLine<'a> {
@@ -129,7 +129,7 @@ impl<'a> NodeTreeWithRangesLine<'a> {
     const EDIT: Colour = Colour::RGB(255, 255, 102);
     const CHANGED: Colour = Colour::RGB(0, 255, 0);
 
-    pub fn new(original: Option<HashSet<usize>>) -> Self {
+    pub fn new(original: Option<HashMap<usize, String>>) -> Self {
         Self {
             dquote_unnamed: false,
             source_code: None,
@@ -174,14 +174,14 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                 if !c.node.has_changes() {
                     indent += 1;
                 }
-                if let Some(ref set) = self.original {
-                    if !set.contains(&c.node.id()) {
+                if let Some(ref map) = self.original {
+                    if !map.contains_key(&c.node.id()) {
                         indent += 1;
                     }
                 }
                 buf.push_str(" ".repeat(indent).as_str());
-                if let Some(ref set) = self.original {
-                    if !set.contains(&c.node.id()) {
+                if let Some(ref map) = self.original {
+                    if !map.contains_key(&c.node.id()) {
                         buf.push_str(Self::CHANGED.bold().paint("·").to_string().as_str());
                     }
                 }
@@ -421,13 +421,27 @@ pub fn parse_file_at_path(
     if let Some(mut tree) = tree {
         let mut node_ids = None;
         if apply_edits {
-            let mut set = HashSet::new();
+            let mut map = HashMap::new();
             let mut cursor = tree.walk();
             let mut needs_visit_children = true;
             loop {
-                let node = cursor.node();
-                set.insert(node.id());
                 if needs_visit_children {
+                    let node = cursor.node();
+                    let start = node.start_position();
+                    let end = node.end_position();
+                    let num_range = format!(
+                        "{}:{:<2} - {}:{:<2}",
+                        start.row, start.column, end.row, end.column,
+                    );
+                    if let Some(old) = map.insert(node.id(), num_range.clone()) {
+                        println!(
+                            "Node id exists: {} - {:>10} {:>20} - {}",
+                            node.id(),
+                            num_range,
+                            node.kind(),
+                            old,
+                        );
+                    }
                     // Traverse logic --------------
                     if cursor.goto_first_child() {
                         needs_visit_children = true;
@@ -447,7 +461,7 @@ pub fn parse_file_at_path(
                     //------------------------------
                 }
             }
-            node_ids.replace(set);
+            node_ids.replace(map);
         }
 
         if debug_graph && !edits.is_empty() {
