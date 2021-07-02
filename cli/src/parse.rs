@@ -118,7 +118,12 @@ struct NodeTreeWithRangesLine<'a> {
 }
 
 impl<'a> NodeTreeWithRangesLine<'a> {
-    const LINE: Colour = Colour::RGB(122, 209, 143);
+    // const LINE: Colour = Colour::RGB(122, 209, 143);
+    // const LINE: Colour = Colour::RGB(214, 247, 135);
+    // const LINE: Colour = Colour::RGB(208, 241, 132);
+    // const LINE: Colour = Colour::RGB(199, 230, 127);
+    const LINE: Colour = Colour::RGB(188, 218, 120);
+    const LINE2: Colour = Colour::RGB(80, 80, 80);
     const FIELD: Colour = Colour::RGB(177, 220, 253);
     const TEXT: Colour = Colour::RGB(118, 118, 118);
     const NONTERM: Colour = Colour::RGB(117, 187, 253);
@@ -166,7 +171,8 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                 if self.last_line_no != c.node.start_position().row {
                     buf.push_str(Self::LINE.paint(num_range).to_string().as_str())
                 } else {
-                    buf.push_str(num_range.as_str())
+                    buf.push_str(Self::LINE2.paint(num_range).to_string().as_str())
+                    // buf.push_str(num_range.as_str())
                 }
                 if !c.node.has_error() {
                     indent += 1;
@@ -281,7 +287,8 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                                             line.len(),
                                         );
                                         buf.push_str("\n");
-                                        buf.push_str(&num_range.as_str());
+                                        // buf.push_str(&num_range.as_str());
+                                        buf.push_str(Self::LINE2.paint(&num_range).to_string().as_str());
                                         buf.push_str(
                                             " ".repeat(
                                                 // TODO: Use separate buffer for measurements.
