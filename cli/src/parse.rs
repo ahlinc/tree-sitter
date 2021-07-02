@@ -123,7 +123,10 @@ impl<'a> NodeTreeWithRangesLine<'a> {
     // const LINE: Colour = Colour::RGB(208, 241, 132);
     // const LINE: Colour = Colour::RGB(199, 230, 127);
     const LINE: Colour = Colour::RGB(188, 218, 120);
-    const LINE2: Colour = Colour::RGB(80, 80, 80);
+    // const LINE2: Colour = Colour::RGB(80, 80, 80);
+    // const LINE2: Colour = Colour::RGB(63, 74, 79);
+    // const LINE2: Colour = Colour::RGB(72, 84, 90);
+    const LINE2: Colour = Colour::RGB(92, 108, 115);
     const FIELD: Colour = Colour::RGB(177, 220, 253);
     const TEXT: Colour = Colour::RGB(118, 118, 118);
     const NONTERM: Colour = Colour::RGB(117, 187, 253);
@@ -288,7 +291,9 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                                         );
                                         buf.push_str("\n");
                                         // buf.push_str(&num_range.as_str());
-                                        buf.push_str(Self::LINE2.paint(&num_range).to_string().as_str());
+                                        buf.push_str(
+                                            Self::LINE2.paint(&num_range).to_string().as_str(),
+                                        );
                                         buf.push_str(
                                             " ".repeat(
                                                 // TODO: Use separate buffer for measurements.
