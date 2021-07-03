@@ -64,8 +64,20 @@ impl Config {
             Some(location) => location,
             None => return Config::initial(),
         };
-        let content = fs::read_to_string(&location)?;
-        let config = serde_json::from_str(&content)?;
+        let content = fs::read_to_string(&location).or_else(|err| {
+            Err(anyhow!(
+                "Failed to read \"{}\": {}",
+                &location.to_string_lossy(),
+                err
+            ))
+        })?;
+        let config = serde_json::from_str(&content).or_else(|err| {
+            Err(anyhow!(
+                "Bad JSON config \"{}\": {}",
+                &location.to_string_lossy(),
+                err
+            ))
+        })?;
         Ok(Config { location, config })
     }
 
