@@ -230,10 +230,12 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                     if let Some(source_code) = self.source_code {
                         let start = c.node.start_byte();
                         let end = c.node.end_byte();
-                        let value = std::str::from_utf8(&source_code[start..end]).unwrap();
-                        if c.node.kind() != value {
-                            let value = translate_invisible_symbols(value);
-                            buf.push_str(format!(" `{}`", Self::TEXT.paint(value)).as_str());
+                        if end > start { // Don't show for MISSING empty tokens
+                            let value = std::str::from_utf8(&source_code[start..end]).unwrap();
+                            if c.node.kind() != value {
+                                let value = translate_invisible_symbols(value);
+                                buf.push_str(format!(" `{}`", Self::TEXT.paint(value)).as_str());
+                            }
                         }
                     }
                 } else {
