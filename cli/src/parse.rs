@@ -220,7 +220,7 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                     if c.node.is_error() {
                         buf.push_str(Self::ERROR.bold().paint("ERROR: ").to_string().as_str());
                     }
-                    let node = escape_spaces(c.node.kind()).replace("\"", "\\\"");
+                    let node = translate_invisible_symbols(c.node.kind()).replace("\"", "\\\"");
                     buf.push_str(
                         Self::TERM
                             .paint(format!("\"{}\"", node))
@@ -232,7 +232,7 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                         let end = c.node.end_byte();
                         let value = std::str::from_utf8(&source_code[start..end]).unwrap();
                         if c.node.kind() != value {
-                            let value = escape_spaces(value);
+                            let value = translate_invisible_symbols(value);
                             buf.push_str(format!(" `{}`", Self::TEXT.paint(value)).as_str());
                         }
                     }
@@ -381,14 +381,20 @@ trait Render {
     fn render(&mut self, cursor: &mut TreeCursor) -> Result<()>;
 }
 
-fn escape_spaces(string: &str) -> String {
-    string
-        .replace("\\", "\\\\")
-        .replace("\t", "\\t")
-        .replace("\n", "\\n")
-        .replace("\x0b", "\\v")
-        .replace("\x0c", "\\f")
-        .replace("\r", "\\r")
+fn translate_invisible_symbols(string: &str) -> String {
+    let mut buf = String::with_capacity(string.len() * 2);
+    for ch in string.chars() {
+        match ch {
+            '\\' => buf.push_str("\\\\"),
+            '\t' => buf.push_str("\\t"),
+            '\n' => buf.push_str("\\n"),
+            '\r' => buf.push_str("\\r"),
+            '\x0b' => buf.push_str("\\v"),
+            '\x0c' => buf.push_str("\\f"),
+            x => buf.push(x),
+        }
+    }
+    buf
 }
 
 // --------------------------------------------------------------------
