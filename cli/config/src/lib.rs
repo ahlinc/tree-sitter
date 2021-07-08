@@ -14,6 +14,7 @@ use std::{env, fs};
 /// This type holds the generic JSON content of the configuration file.  Individual tree-sitter
 /// components will use the [`get`][] method to parse that JSON to extract configuration fields
 /// that are specific to that component.
+#[derive(Debug)]
 pub struct Config {
     pub location: PathBuf,
     pub config: Value,
@@ -24,7 +25,9 @@ impl Config {
         if let Ok(path) = env::var("TREE_SITTER_DIR") {
             let mut path = PathBuf::from(path);
             path.push("config.json");
-            return Ok(Some(path));
+            if path.is_file() {
+                return Ok(Some(path));
+            }
         }
 
         let xdg_path = Self::xdg_config_file()?;

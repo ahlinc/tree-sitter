@@ -87,7 +87,8 @@ fn run() -> Result<()> {
                         .takes_value(true)
                         .multiple(true)
                         .number_of_values(1),
-                ),
+                )
+                .arg(Arg::with_name("apply-edits").long("apply-edit").short("a")),
         )
         .subcommand(
             SubCommand::with_name("query")
@@ -280,7 +281,13 @@ fn run() -> Result<()> {
             let edits = matches
                 .values_of("edits")
                 .map_or(Vec::new(), |e| e.collect());
+            let apply_edits = matches.is_present("apply-edits");
             let cancellation_flag = util::cancel_on_stdin();
+
+            if debug {
+                // For augmenting debug logging in external scanners
+                env::set_var("TREE_SITTER_DEBUG", "1");
+            }
 
             let timeout = matches
                 .value_of("timeout")
@@ -305,6 +312,7 @@ fn run() -> Result<()> {
                     language,
                     path,
                     &edits,
+                    apply_edits,
                     max_path_length,
                     quiet,
                     time,
@@ -413,11 +421,10 @@ fn run() -> Result<()> {
 
                 if let Some(highlight_config) = language_config.highlight_config(language)? {
                     let source = fs::read(path)?;
-                    let theme_config = config.get()?;
                     if html_mode {
                         highlight::html(
                             &loader,
-                            &theme_config,
+                            &theme_config.theme,
                             &source,
                             highlight_config,
                             quiet,
@@ -426,7 +433,7 @@ fn run() -> Result<()> {
                     } else {
                         highlight::ansi(
                             &loader,
-                            &theme_config,
+                            &theme_config.theme,
                             &source,
                             highlight_config,
                             time,

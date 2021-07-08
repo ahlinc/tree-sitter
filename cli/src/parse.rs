@@ -1,11 +1,13 @@
 use super::util;
+use ansi_term::Colour;
 use anyhow::{anyhow, Context, Result};
+use std::collections::HashMap;
 use std::io::{self, Write};
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 use std::time::Instant;
 use std::{fmt, fs, usize};
-use tree_sitter::{InputEdit, Language, LogType, Parser, Point, Tree};
+use tree_sitter::{InputEdit, Language, LogType, Node, Parser, Point, Tree, TreeCursor};
 
 #[derive(Debug)]
 pub struct Edit {
@@ -29,11 +31,381 @@ impl fmt::Display for Stats {
                  (self.successful_parses as f64) / (self.total_parses as f64) * 100.0);
     }
 }
+enum Step<'c, 'tree> {
+    AfterChildren(&'c StepContext<'tree>),
+    Ident(&'c StepContext<'tree>),
+    Node(&'c StepContext<'tree>),
+    LF(&'c StepContext<'tree>),
+}
+
+struct StepContext<'tree> {
+    node: Node<'tree>,
+    field_name: Option<&'static str>,
+    indent_level: usize,
+}
+
+enum RenderResult {
+    Str(&'static str),
+    String(String),
+}
+
+impl From<&'static str> for RenderResult {
+    fn from(s: &'static str) -> Self {
+        RenderResult::Str(s)
+    }
+}
+
+impl From<String> for RenderResult {
+    fn from(s: String) -> Self {
+        RenderResult::String(s)
+    }
+}
+
+trait RenderStep {
+    fn render_step(&mut self, step: Step) -> RenderResult;
+}
+
+struct StepRender<'a, T>
+where
+    T: Write,
+{
+    out: &'a mut T,
+    buf: String,
+    render: &'a mut dyn RenderStep,
+    show_all: bool,
+}
+
+impl<'a, T> StepRender<'a, T>
+where
+    T: Write,
+{
+    pub fn new(out: &'a mut T, render: &'a mut dyn RenderStep) -> Self {
+        Self {
+            out,
+            buf: String::new(),
+            render,
+            show_all: false,
+        }
+    }
+
+    pub fn show_all(mut self, flag: bool) -> Self {
+        self.show_all = flag;
+        self
+    }
+
+    #[inline]
+    fn render_line(&mut self) -> Result<()> {
+        self.out.write_all(self.buf.as_bytes())?;
+        self.buf.clear();
+        Ok(())
+    }
+
+    #[inline]
+    fn combine(&mut self, step: Step) {
+        match self.render.render_step(step) {
+            RenderResult::Str(s) => self.buf.push_str(s),
+            RenderResult::String(s) => self.buf.push_str(s.as_ref()),
+        }
+    }
+}
+
+struct NodeTreeWithRangesLine<'a> {
+    dquote_unnamed: bool,
+    source_code: Option<&'a [u8]>,
+    new_line_started: bool,
+    last_line_no: usize,
+    original: Option<HashMap<usize, String>>,
+}
+
+impl<'a> NodeTreeWithRangesLine<'a> {
+    // const LINE: Colour = Colour::RGB(122, 209, 143);
+    // const LINE: Colour = Colour::RGB(214, 247, 135);
+    // const LINE: Colour = Colour::RGB(208, 241, 132);
+    // const LINE: Colour = Colour::RGB(199, 230, 127);
+    const LINE: Colour = Colour::RGB(188, 218, 120);
+    // const LINE2: Colour = Colour::RGB(80, 80, 80);
+    // const LINE2: Colour = Colour::RGB(63, 74, 79);
+    // const LINE2: Colour = Colour::RGB(72, 84, 90);
+    const LINE2: Colour = Colour::RGB(92, 108, 115);
+    const FIELD: Colour = Colour::RGB(177, 220, 253);
+    const TEXT: Colour = Colour::RGB(118, 118, 118);
+    const NONTERM: Colour = Colour::RGB(117, 187, 253);
+    const TERM: Colour = Colour::RGB(219, 219, 173);
+    const MISSING: Colour = Colour::RGB(255, 153, 51);
+    const ERROR: Colour = Colour::RGB(255, 51, 51);
+    const EXTRA: Colour = Colour::RGB(153, 153, 255);
+    const EDIT: Colour = Colour::RGB(255, 255, 102);
+    const CHANGED: Colour = Colour::RGB(0, 255, 0);
+
+    pub fn new(original: Option<HashMap<usize, String>>) -> Self {
+        Self {
+            dquote_unnamed: false,
+            source_code: None,
+            new_line_started: false,
+            last_line_no: usize::MAX,
+            original,
+        }
+    }
+
+    pub fn dquote_unnamed(mut self, flag: bool) -> Self {
+        self.dquote_unnamed = flag;
+        self
+    }
+
+    pub fn show_node_values(mut self, source_code: Option<&'a [u8]>) -> Self {
+        self.source_code = source_code;
+        self
+    }
+}
+
+impl RenderStep for NodeTreeWithRangesLine<'_> {
+    fn render_step(&mut self, step: Step) -> RenderResult {
+        match step {
+            Step::Ident(c) => {
+                let start = c.node.start_position();
+                let end = c.node.end_position();
+                let mut buf = String::new();
+                let num_range = format!(
+                    "{}:{:<2} - {}:{:<2}",
+                    start.row, start.column, end.row, end.column,
+                );
+                let indent = c.indent_level * 2 + 14;
+                let mut indent = indent.saturating_sub(num_range.len());
+                if self.last_line_no != c.node.start_position().row {
+                    buf.push_str(Self::LINE.paint(num_range).to_string().as_str())
+                } else {
+                    buf.push_str(Self::LINE2.paint(num_range).to_string().as_str())
+                    // buf.push_str(num_range.as_str())
+                }
+                if !c.node.has_error() {
+                    indent += 1;
+                }
+                if !c.node.has_changes() {
+                    indent += 1;
+                }
+                if let Some(ref map) = self.original {
+                    if !map.contains_key(&c.node.id()) {
+                        indent += 1;
+                    }
+                }
+                buf.push_str(" ".repeat(indent).as_str());
+                if let Some(ref map) = self.original {
+                    if !map.contains_key(&c.node.id()) {
+                        buf.push_str(Self::CHANGED.bold().paint("•").to_string().as_str());
+                    }
+                }
+                if c.node.has_changes() {
+                    buf.push_str(Self::EDIT.bold().paint("•").to_string().as_str());
+                }
+                if c.node.has_error() {
+                    buf.push_str(Self::ERROR.bold().paint("•").to_string().as_str());
+                }
+                self.last_line_no = c.node.start_position().row;
+                buf.into()
+            }
+            Step::Node(c) => {
+                let mut buf = String::with_capacity(120);
+                if c.node.is_missing() {
+                    buf.push_str(Self::MISSING.bold().paint("MISSING: ").to_string().as_str());
+                }
+                if let Some(name) = c.field_name {
+                    buf.push_str(
+                        Self::FIELD
+                            .paint(format!("{}: ", name))
+                            .to_string()
+                            .as_str(),
+                    );
+                }
+                if self.dquote_unnamed && !c.node.is_named() {
+                    if c.node.is_error() {
+                        buf.push_str(Self::ERROR.bold().paint("ERROR: ").to_string().as_str());
+                    }
+                    let node = translate_invisible_symbols(c.node.kind()).replace("\"", "\\\"");
+                    buf.push_str(
+                        Self::TERM
+                            .paint(format!("\"{}\"", node))
+                            .to_string()
+                            .as_str(),
+                    );
+                    if let Some(source_code) = self.source_code {
+                        let start = c.node.start_byte();
+                        let end = c.node.end_byte();
+                        if end > start { // Don't show for MISSING empty tokens
+                            let value = std::str::from_utf8(&source_code[start..end]).unwrap();
+                            if c.node.kind() != value {
+                                let value = translate_invisible_symbols(value);
+                                buf.push_str(format!(" `{}`", Self::TEXT.paint(value)).as_str());
+                            }
+                        }
+                    }
+                } else {
+                    let style = if c.node.is_error() {
+                        Self::ERROR.bold()
+                    } else if c.node.is_extra() {
+                        Self::EXTRA.normal()
+                    } else {
+                        Self::NONTERM.normal()
+                    };
+                    buf.push_str(style.paint(c.node.kind()).to_string().as_str());
+                }
+                if let Some(source_code) = self.source_code {
+                    if c.node.is_named() && (c.node.child_count() == 0 || self.new_line_started) {
+                        if c.node
+                            .child(0)
+                            .map_or(true, |n| n.range() != c.node.range() || !n.is_named())
+                        {
+                            if c.node.start_position().row == c.node.end_position().row {
+                                let start = c.node.start_byte();
+                                let end = c.node.end_byte();
+                                let value = std::str::from_utf8(&source_code[start..end]).unwrap();
+                                buf.push_str(format!(" `{}`", Self::TEXT.paint(value)).as_str());
+                            } else if c.node.child_count() == 0 {
+                                // TODO: Implement first line shift in case of captured lines have padding
+                                let value = std::str::from_utf8(
+                                    &source_code[c.node.start_byte()..c.node.end_byte()],
+                                )
+                                .unwrap();
+                                let padding = buf.len();
+                                let mut row = c.node.start_position().row;
+                                let mut node_lines = value.split("\n");
+                                let mut line = node_lines.next();
+                                loop {
+                                    let next_line = node_lines.next();
+                                    if let Some(line) = line {
+                                        if next_line.is_some() {
+                                            buf.push_str(
+                                                format!(" `{}\\n`", Self::TEXT.paint(line))
+                                                    .as_str(),
+                                            )
+                                        } else {
+                                            buf.push_str(
+                                                format!(" `{}`", Self::TEXT.paint(line)).as_str(),
+                                            );
+                                            break;
+                                        }
+                                        row += 1;
+                                        let num_range = format!(
+                                            "{}:{:<2} - {}:{:<2}",
+                                            row,
+                                            0,
+                                            row,
+                                            line.len(),
+                                        );
+                                        buf.push_str("\n");
+                                        // buf.push_str(&num_range.as_str());
+                                        buf.push_str(
+                                            Self::LINE2.paint(&num_range).to_string().as_str(),
+                                        );
+                                        buf.push_str(
+                                            " ".repeat(
+                                                // TODO: Use separate buffer for measurements.
+                                                // -3 due to coloring escape codes.
+                                                padding.saturating_sub(num_range.len() - 3),
+                                            )
+                                            .as_str(),
+                                        );
+                                    }
+                                    line = next_line;
+                                }
+                            }
+                        }
+                    }
+                }
+                self.new_line_started = false;
+                buf.into()
+            }
+            Step::AfterChildren(_) => "".into(),
+            Step::LF(_) => {
+                self.new_line_started = true;
+                "\n".into()
+            }
+        }
+    }
+}
+
+impl<'a, T> Render for StepRender<'a, T>
+where
+    T: Write,
+{
+    fn render(&mut self, cursor: &mut TreeCursor) -> Result<()> {
+        let mut indent_level = 0;
+        let mut needs_visit_children = true;
+        let mut needs_newline = false;
+        loop {
+            let node = cursor.node();
+            let is_named = node.is_named();
+            let context = StepContext {
+                node,
+                field_name: cursor.field_name(),
+                indent_level,
+            };
+            if needs_visit_children {
+                if is_named || self.show_all {
+                    if needs_newline {
+                        self.combine(Step::LF(&context));
+                        self.render_line()?;
+                    }
+                    needs_newline = true;
+                    self.combine(Step::Ident(&context));
+                    self.combine(Step::Node(&context));
+                }
+                // Traverse logic --------------
+                if cursor.goto_first_child() {
+                    needs_visit_children = true;
+                    indent_level += 1;
+                } else {
+                    needs_visit_children = false;
+                }
+                //------------------------------
+            } else {
+                if is_named || self.show_all {
+                    self.combine(Step::AfterChildren(&context));
+                }
+                // Traverse logic --------------
+                if cursor.goto_next_sibling() {
+                    needs_visit_children = true;
+                } else if cursor.goto_parent() {
+                    needs_visit_children = false;
+                    indent_level -= 1;
+                } else {
+                    break;
+                }
+                //------------------------------
+            }
+        }
+        self.render_line()?;
+        println!();
+        Ok(())
+    }
+}
+
+trait Render {
+    fn render(&mut self, cursor: &mut TreeCursor) -> Result<()>;
+}
+
+fn translate_invisible_symbols(string: &str) -> String {
+    let mut buf = String::with_capacity(string.len() * 2);
+    for ch in string.chars() {
+        match ch {
+            '\\' => buf.push_str("\\\\"),
+            '\t' => buf.push_str("\\t"),
+            '\n' => buf.push_str("\\n"),
+            '\r' => buf.push_str("\\r"),
+            '\x0b' => buf.push_str("\\v"),
+            '\x0c' => buf.push_str("\\f"),
+            x => buf.push(x),
+        }
+    }
+    buf
+}
+
+// --------------------------------------------------------------------
 
 pub fn parse_file_at_path(
     language: Language,
     path: &Path,
     edits: &Vec<&str>,
+    apply_edits: bool,
     max_path_length: usize,
     quiet: bool,
     print_time: bool,
@@ -77,6 +449,51 @@ pub fn parse_file_at_path(
     let mut stdout = stdout.lock();
 
     if let Some(mut tree) = tree {
+        let mut node_ids = None;
+        if apply_edits {
+            let mut map = HashMap::new();
+            let mut cursor = tree.walk();
+            let mut needs_visit_children = true;
+            loop {
+                if needs_visit_children {
+                    let node = cursor.node();
+                    let start = node.start_position();
+                    let end = node.end_position();
+                    let num_range = format!(
+                        "{}:{:<2} - {}:{:<2}",
+                        start.row, start.column, end.row, end.column,
+                    );
+                    if let Some(old) = map.insert(node.id(), num_range.clone()) {
+                        println!(
+                            "Node id exists: {} - {:>10} {:>20} - {}",
+                            node.id(),
+                            num_range,
+                            node.kind(),
+                            old,
+                        );
+                    }
+                    // Traverse logic --------------
+                    if cursor.goto_first_child() {
+                        needs_visit_children = true;
+                    } else {
+                        needs_visit_children = false;
+                    }
+                    //------------------------------
+                } else {
+                    // Traverse logic --------------
+                    if cursor.goto_next_sibling() {
+                        needs_visit_children = true;
+                    } else if cursor.goto_parent() {
+                        needs_visit_children = false;
+                    } else {
+                        break;
+                    }
+                    //------------------------------
+                }
+            }
+            node_ids.replace(map);
+        }
+
         if debug_graph && !edits.is_empty() {
             println!("BEFORE:\n{}", String::from_utf8_lossy(&source_code));
         }
@@ -84,8 +501,9 @@ pub fn parse_file_at_path(
         for (i, edit) in edits.iter().enumerate() {
             let edit = parse_edit_flag(&source_code, edit)?;
             perform_edit(&mut tree, &mut source_code, &edit);
-            tree = parser.parse(&source_code, Some(&tree)).unwrap();
-
+            if apply_edits {
+                tree = parser.parse(&source_code, Some(&tree)).unwrap();
+            }
             if debug_graph {
                 println!("AFTER {}:\n{}", i, String::from_utf8_lossy(&source_code));
             }
@@ -96,59 +514,16 @@ pub fn parse_file_at_path(
         let mut cursor = tree.walk();
 
         if !quiet {
-            let mut needs_newline = false;
-            let mut indent_level = 0;
-            let mut did_visit_children = false;
-            loop {
-                let node = cursor.node();
-                let is_named = node.is_named();
-                if did_visit_children {
-                    if is_named {
-                        stdout.write(b")")?;
-                        needs_newline = true;
-                    }
-                    if cursor.goto_next_sibling() {
-                        did_visit_children = false;
-                    } else if cursor.goto_parent() {
-                        did_visit_children = true;
-                        indent_level -= 1;
-                    } else {
-                        break;
-                    }
-                } else {
-                    if is_named {
-                        if needs_newline {
-                            stdout.write(b"\n")?;
-                        }
-                        for _ in 0..indent_level {
-                            stdout.write(b"  ")?;
-                        }
-                        let start = node.start_position();
-                        let end = node.end_position();
-                        if let Some(field_name) = cursor.field_name() {
-                            write!(&mut stdout, "{}: ", field_name)?;
-                        }
-                        write!(
-                            &mut stdout,
-                            "({} [{}, {}] - [{}, {}]",
-                            node.kind(),
-                            start.row,
-                            start.column,
-                            end.row,
-                            end.column
-                        )?;
-                        needs_newline = true;
-                    }
-                    if cursor.goto_first_child() {
-                        did_visit_children = false;
-                        indent_level += 1;
-                    } else {
-                        did_visit_children = true;
-                    }
-                }
-            }
+            StepRender::new(
+                &mut stdout,
+                &mut NodeTreeWithRangesLine::new(node_ids)
+                    .dquote_unnamed(true)
+                    .show_node_values(Some(&source_code)),
+            )
+            .show_all(true)
+            .render(&mut cursor)?;
+
             cursor.reset(tree.root_node());
-            println!("");
         }
 
         if debug_xml {
@@ -310,18 +685,27 @@ fn parse_edit_flag(source_code: &Vec<u8>, flag: &str) -> Result<Edit> {
     let deleted_length = parts.next().ok_or_else(error)?;
     let inserted_text = parts.collect::<Vec<_>>().join(" ").into_bytes();
 
-    // Position can either be a byte_offset or row,column pair, separated by a comma
-    let position = if position == "$" {
-        source_code.len()
-    } else if position.contains(",") {
-        let mut parts = position.split(",");
-        let row = parts.next().ok_or_else(error)?;
-        let row = usize::from_str_radix(row, 10).map_err(|_| error())?;
-        let column = parts.next().ok_or_else(error)?;
-        let column = usize::from_str_radix(column, 10).map_err(|_| error())?;
-        offset_for_position(source_code, Point { row, column })
+    let parts = if position.contains(",") {
+        Some(position.split(","))
+    } else if position.contains(":") {
+        Some(position.split(":"))
     } else {
-        usize::from_str_radix(position, 10).map_err(|_| error())?
+        None
+    };
+
+    // Position can either be a byte_offset or row,column pair, separated by a comma
+    let position = {
+        if let Some(mut parts) = parts {
+            let row = parts.next().ok_or_else(error)?;
+            let row = usize::from_str_radix(row, 10).map_err(|_| error())?;
+            let column = parts.next().ok_or_else(error)?;
+            let column = usize::from_str_radix(column, 10).map_err(|_| error())?;
+            offset_for_position(source_code, Point { row, column })
+        } else if position == "$" {
+            source_code.len()
+        } else {
+            usize::from_str_radix(position, 10).map_err(|_| error())?
+        }
     };
 
     // Deleted length must be a byte count.
