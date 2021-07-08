@@ -211,22 +211,22 @@ impl RenderStep for NodeTreeWithRangesLine<'_> {
                     if c.node.is_error() {
                         buf.push_str(Self::ERROR.bold().paint("ERROR: ").to_string().as_str());
                     }
-                    let node = c
-                        .node
-                        .kind()
-                        .replace("\\", "\\\\")
-                        .replace("\t", "\\t")
-                        .replace("\n", "\\n")
-                        .replace("\x0b", "\\v")
-                        .replace("\x0c", "\\f")
-                        .replace("\r", "\\r")
-                        .replace("\"", "\\\"");
+                    let node = escape_spaces(c.node.kind()).replace("\"", "\\\"");
                     buf.push_str(
                         Self::TERM
                             .paint(format!("\"{}\"", node))
                             .to_string()
                             .as_str(),
                     );
+                    if let Some(source_code) = self.source_code {
+                        let start = c.node.start_byte();
+                        let end = c.node.end_byte();
+                        let value = std::str::from_utf8(&source_code[start..end]).unwrap();
+                        if c.node.kind() != value {
+                            let value = escape_spaces(value);
+                            buf.push_str(format!(" `{}`", Self::TEXT.paint(value)).as_str());
+                        }
+                    }
                 } else {
                     let style = if c.node.is_error() {
                         Self::ERROR.bold()
@@ -367,6 +367,16 @@ where
 
 trait Render {
     fn render(&mut self, cursor: &mut TreeCursor) -> Result<()>;
+}
+
+fn escape_spaces(string: &str) -> String {
+    string
+        .replace("\\", "\\\\")
+        .replace("\t", "\\t")
+        .replace("\n", "\\n")
+        .replace("\x0b", "\\v")
+        .replace("\x0c", "\\f")
+        .replace("\r", "\\r")
 }
 
 // --------------------------------------------------------------------
